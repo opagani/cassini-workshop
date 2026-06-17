@@ -35,7 +35,7 @@ MVP = all 7 tools (no partial release). FTS5 assumed available on D1.
 
 ### Group D — MCP transport surface (depends on T01)
 
-- [ ] **T05 — Worker MCP transport + tool registry** · story:STORY-001 · depends-on:T01 · parallel-group:-
+- [x] **T05 — Worker MCP transport + tool registry** · story:STORY-001 · depends-on:T01 · parallel-group:-
   `src/server.ts` + `src/tools/index.ts`: `initialize` returns versioned
   `serverInfo`; `tools/list` returns the 7 names (handlers may be stubs that
   throw "not implemented"); unknown tool → MCP error. Acceptance: specs

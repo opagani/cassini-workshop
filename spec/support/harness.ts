@@ -13,6 +13,8 @@
  * updating the specs that depend on them.
  */
 import type { Row } from "./fixtures";
+import { createTestDb } from "./db";
+import server from "../../src/server";
 
 /** MCP error surfaced by a tool call — code is the JSON-RPC error code. */
 export class McpError extends Error {
@@ -41,6 +43,66 @@ export interface Session {
  * ARCHITECTURE.md), insert rows, wrap as the `Db` port, inject into the
  * Worker `env`, and route requests through `app.fetch`.
  */
-export function sessionWith(_rows: Row[]): Session {
-  throw new Error("harness not implemented — build T01/T05 first (specs are red by design)");
+export function sessionWith(rows: Row[]): Session {
+  const db = createTestDb(rows);
+  // Inject via the named test seam — resolveDb() uses __testDb directly,
+  // bypassing d1Adapter. DB is not set here; it is only used in production.
+  const env = { __testDb: db };
+
+  /** POST a JSON-RPC request and return the parsed response body. */
+  async function post(method: string, params?: unknown): Promise<unknown> {
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method,
+      ...(params !== undefined ? { params } : {}),
+    });
+
+    const request = new Request("http://localhost/", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+
+    const response = await server.fetch(request, env as Parameters<typeof server.fetch>[1]);
+    return response.json();
+  }
+
+  return {
+    async initialize() {
+      const resp = await post("initialize") as {
+        result: { serverInfo: { name: string; version: string } };
+      };
+      return { serverInfo: resp.result.serverInfo };
+    },
+
+    async listTools() {
+      const resp = await post("tools/list") as {
+        result: { tools: Array<{ name: string }> };
+      };
+      return resp.result.tools.map((t) => t.name);
+    },
+
+    async callTool<T = unknown>(
+      name: string,
+      args: Record<string, unknown> = {},
+    ): Promise<T> {
+      const resp = await post("tools/call", { name, arguments: args }) as {
+        result?: { content: Array<{ type: string; text: string }>; isError: boolean };
+        error?: { code: number; message: string };
+      };
+
+      if (resp.error !== undefined) {
+        throw new McpError(resp.error.code, resp.error.message);
+      }
+
+      // Unwrap the text content back to the structured payload.
+      const content = resp.result?.content?.[0];
+      if (content === undefined || content.type !== "text") {
+        throw new McpError(-32603, "unexpected tool result shape");
+      }
+
+      return JSON.parse(content.text) as T;
+    },
+  };
 }
