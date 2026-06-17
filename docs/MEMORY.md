@@ -75,3 +75,14 @@ harness and hits a real `DEPLOY_URL` — production reality, not mocks.
 ### 2026-06-17 (/plan): T08 (search) depends on T04 (importer)
 FTS5 search can't be specced green without the FTS virtual table the
 importer builds. Sequencing: T04 before T08 even though both are "tools era".
+
+### 2026-06-17 (/build-loop): MCP transport = hand-rolled JSON-RPC over HTTP
+REVERSES the /design choice of Cloudflare `agents`/workers-mcp. That
+framework is Durable-Object based and only runs in the Workers runtime, so
+the production `default.fetch` entry point can't be driven from node — which
+breaks the `sessionWith` harness and all 10 specs (they POST plain JSON-RPC
+through `default.fetch` with an injected in-memory D1). User chose a minimal
+hand-rolled MCP-over-HTTP handler at T05: ~100 lines, no Durable Objects,
+testable in jest, runs on Workers free tier, and maximally transparent for
+the workshop. ARCHITECTURE.md decision row updated; reconcile prose in
+/document.

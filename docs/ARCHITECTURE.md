@@ -99,7 +99,7 @@ happens once during import.
 | Decision | Why | Rejected alternative |
 |---|---|---|
 | **Cloudflare Workers + D1** | Free-tier deploy is the hard constraint. D1 is SQLite-shaped → near-zero schema work. | Bun + `bun:sqlite` locally hosted — fails the deploy requirement. |
-| **Cloudflare `agents` / workers-mcp** | First-party Workers support for MCP — fewer custom transport hacks during the workshop demo. | `@modelcontextprotocol/sdk` directly — possible but more glue code on Workers. |
+| **Hand-rolled JSON-RPC-over-HTTP MCP handler** (was: `agents`/workers-mcp — reversed in /build-loop) | `agents`/workers-mcp is Durable-Object based, only runs in the Workers runtime, so `default.fetch` can't be driven from node — breaks the test harness + all specs. A ~100-line plain `fetch` handler is testable in jest, runs on the free tier, and is the most transparent thing to teach. | `agents`/workers-mcp (DO-based, untestable via default.fetch in node); `@modelcontextprotocol/sdk` (Node-oriented transports need a Workers shim). |
 | **HTTP/SSE only, no stdio shim** | Workers can't speak stdio; Claude Desktop already supports remote MCP servers. Keep one path. | stdio bridge — extra moving part for marginal demo value. |
 | **D1 instead of bundled sql.js** | 62k rows is past the sweet spot for sql.js cold starts; D1 indexes are free. | Bundle `.db` as a Worker asset with sql.js — viable, slower, no FTS5. |
 | **Materialized `start_iso` column at import** | Indexable, cheap at query time, fits Workers' CPU budget. | Parse DOY format on every query — wasteful at 62k rows. |
