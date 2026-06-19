@@ -6,16 +6,16 @@
 A **remote MCP server** running on a single **Cloudflare Worker**, backed by
 **Cloudflare D1** (managed SQLite). It exposes the Cassini `master_plan`
 dataset as a small, well-named set of MCP tools an LLM client can call over
-HTTP/SSE. No writes, no auth, no external services.
+plain HTTP (JSON-RPC 2.0 POST). No writes, no auth, no external services.
 
 ```
 Claude Desktop / MCP client
-        │  HTTP + SSE
+        │  HTTP (JSON-RPC 2.0 POST)
         ▼
 ┌──────────────────────────┐
 │  Cloudflare Worker (TS)  │
 │  ─ MCP transport         │
-│  ─ Tool handlers         │
+│  ─ Tool registry         │
 │  ─ Query layer           │
 └──────────────────────────┘
         │  D1 binding
@@ -31,30 +31,33 @@ Claude Desktop / MCP client
 
 | Component | Responsibility | Lives in |
 |---|---|---|
-| **Transport** | MCP wire protocol over HTTP/SSE | `src/server.ts` |
-| **Tool registry** | Declares tool schemas + dispatches handlers | `src/tools/index.ts` |
-| **Tool handlers** | One file per tool — parses args, calls query layer, shapes response | `src/tools/*.ts` |
-| **Query layer** | Typed wrappers around D1 SQL. No tool logic here. | `src/db/queries.ts` |
-| **Date utils** | Convert mission DOY format ↔ ISO 8601 | `src/util/dates.ts` |
-| **Importer** | One-shot script: load `data/cassini.db` → D1, add `start_iso`, build FTS | `scripts/import.ts` |
+| **Transport** | MCP wire protocol — JSON-RPC 2.0 over HTTP POST | `src/server.ts` |
+| **JSON-RPC helpers** | Request parsing, response builders, error codes | `src/mcp/jsonrpc.ts` |
+| **Tool registry** | Declares zod schemas, JSON Schema conversion, handler dispatch | `src/tools/index.ts` |
+| **Tool handlers** | All 7 handlers in one file — parses args, calls query layer, returns result | `src/tools/index.ts` |
+| **Query layer** | Typed, prepared-statement wrappers around D1 SQL. No tool logic. | `src/db/queries.ts` |
+| **Schema DDL** | Single source of truth for table + indexes + FTS — used by both importer and tests | `src/db/schema.ts` |
+| **Date utils** | Convert mission DOY format (`YYYY-DDDThh:mm:ss`) ↔ ISO 8601 | `src/util/dates.ts` |
+| **Version** | Semantic version reported in `initialize` response (SPEC N6) | `src/version.ts` |
+| **Importer** | One-shot script: load `data/cassini.db` → D1, derive `start_iso`, build FTS | `scripts/import.ts` |
 
-**Boundaries (why this split):** the tool handler is the only thing that
+**Boundaries (why this split):** the tool registry is the only thing that
 knows MCP exists; the query layer is the only thing that knows SQL exists.
-Swapping transport (e.g., adding a stdio shim for local dev) touches one
-file. Swapping D1 for something else touches one file. This is the
-"design-for-change" bet.
+Swapping transport touches one file; swapping D1 for something else touches
+one file. This is the "design-for-change" bet.
 
 ## 🔄 Data Flow
 
-1. Client calls a tool over HTTP/SSE.
-2. Transport routes to the tool registry.
-3. Tool handler validates args (zod), calls query-layer function.
-4. Query layer issues prepared D1 statement, returns rows.
-5. Handler shapes rows into the MCP response (JSON, terse).
+1. Client POSTs a JSON-RPC 2.0 request to the Worker URL.
+2. `default.fetch` parses the body; bad JSON → parse error, not 500.
+3. Dispatches on method: `initialize`, `tools/list`, or `tools/call`.
+4. For `tools/call`: resolves the D1 adapter, finds the handler in the registry.
+5. Handler validates args with zod (ZodError → `INVALID_PARAMS`), calls the query function.
+6. Query layer issues a prepared D1 statement with bound params, returns typed rows.
+7. Handler returns the result; server wraps it as MCP text content and JSON-RPC success.
+8. Unexpected errors → `console.error` + generic `"internal error"` (no internals leaked).
 
-All synchronous request/response — no jobs, no queues. SSE is used only by
-the MCP transport for server→client streaming of tool/list updates and
-notifications, not for our own async work.
+All synchronous request/response — no SSE, no jobs, no queues.
 
 ## 🗄️ Data Model
 
@@ -109,16 +112,13 @@ happens once during import.
 
 ## ⚠️ Risks & Fallbacks
 
-| Risk | Fallback |
+| Risk | Status / Fallback |
 |---|---|
-| D1 free-tier query limits hit during the demo | Pre-warm + cache distinct-value tools in memory per isolate. |
-| FTS5 not available on D1 free tier (verify in `/plan`) | Drop to `LIKE` search; document the swap. |
-| `start_time_utc` parse edge cases (gaps, malformed rows) | Importer logs and skips rows it can't parse; row count diff goes in `MEMORY.md`. |
+| D1 free-tier query limits hit during the demo | **Mitigated:** `list_distinct` caches per isolate (T12); other tools have result caps (SPEC F4). |
+| FTS5 not available on D1 free tier | **Confirmed working** — D1 import loaded with 247k rows written including the FTS index; live `search_activities` returns ranked snippets. |
+| `start_time_utc` parse edge cases (malformed rows) | Importer skips + logs bad rows; 0 skipped on the real 61,873-row dataset. |
 | Claude Desktop remote MCP config friction on stage | Pre-recorded fallback + a one-page setup card for attendees. |
 
-## 📝 TODOs
+## 📝 Open items
 
-- Confirm FTS5 availability on D1 free tier (`/plan`).
-- Final tool surface frozen in SPEC.md (below); revisit after first
-  end-to-end run.
-- Workshop date / demo script — still parked from `/explore`.
+- Workshop date / demo script — parked, no decision made.

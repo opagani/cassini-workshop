@@ -11,8 +11,10 @@ bar and rules out hosting/multi-user concerns.
 ### 2026-06-17: Read-only MCP, no writes, no auth, no external enrichment
 Scope cut to keep the demo small and the source teachable.
 
-### 2026-06-17: TypeScript + Bun
-Matches Rob's default stack and keeps the workshop install story tight.
+### 2026-06-17: TypeScript + Bun → revised to TypeScript on Cloudflare Workers
+Initial preference was Bun; overridden in /design when the Cloudflare Workers
+deploy target was confirmed. Runtime is now plain Workers TS (no Bun, no
+bun:sqlite). Test runner is Jest (not Bun's test runner).
 
 ### 2026-06-17: Single-table dataset (`master_plan`, ~62k rows)
 Inspected `data/cassini.db` — one table with time, team, target, title,
@@ -36,10 +38,9 @@ Workers can't speak stdio. Claude Desktop supports remote MCP servers
 natively, so one path is enough. Rejected: stdio bridge — extra moving
 part for marginal demo value.
 
-### 2026-06-17 (/design): MCP framework = Cloudflare agents / workers-mcp
-First-party Workers MCP support beats hand-wiring `@modelcontextprotocol/sdk`
-over an HTTP shim for a teaching context. Rejected: raw `@mcp/sdk` on
-Workers — more glue, more to explain.
+### 2026-06-17 (/design): MCP framework = Cloudflare agents / workers-mcp — REVERSED IN BUILD-LOOP
+See 2026-06-17 (/build-loop) entry below. This decision was overridden before
+any code was written for T05.
 
 ### 2026-06-17 (/design): Date normalization materialized at import
 `start_iso` column computed once during import and indexed, instead of
@@ -75,6 +76,12 @@ harness and hits a real `DEPLOY_URL` — production reality, not mocks.
 ### 2026-06-17 (/plan): T08 (search) depends on T04 (importer)
 FTS5 search can't be specced green without the FTS virtual table the
 importer builds. Sequencing: T04 before T08 even though both are "tools era".
+
+### 2026-06-19 (/document): Live deploy — cassini-mission-plan.redfour.workers.dev
+D1 database `cassini` (id 0a0a3945-5b9f-46da-94e0-ca741b637959) created and
+loaded with 61,873 rows + FTS5 index. Worker deployed at
+https://cassini-mission-plan.redfour.workers.dev. No auth by design;
+read-only; public. All 7 tools verified against the live endpoint.
 
 ### 2026-06-17 (/build-loop): MCP transport = hand-rolled JSON-RPC over HTTP
 REVERSES the /design choice of Cloudflare `agents`/workers-mcp. That
