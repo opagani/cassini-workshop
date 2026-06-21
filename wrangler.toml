@@ -5,4 +5,4 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "cassini"
-database_id = "0a0a3945-5b9f-46da-94e0-ca741b637959"
+database_id = "b0f7dd1f-1b6d-488d-9e9e-5d22e62a8d4d"

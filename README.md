@@ -4,6 +4,18 @@ A read-only [Model Context Protocol](https://modelcontextprotocol.io) server ove
 
 **Live endpoint:** `https://cassini-mission-plan.redfour.workers.dev`
 
+🩺 A plain `GET /` returns a JSON health/info page. The MCP protocol itself is **POST-only** JSON-RPC, so any other request gets a `405`.
+
+```bash
+# Health check
+curl https://cassini-mission-plan.redfour.workers.dev
+
+# List the tools (JSON-RPC over POST)
+curl -X POST https://cassini-mission-plan.redfour.workers.dev \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
 ---
 
 ## What it does
@@ -57,7 +69,7 @@ DEPLOY_URL=https://cassini-mission-plan.redfour.workers.dev npm test
 
 2. **Import the data** (generates `data/cassini.d1.sql` from `data/cassini.db`):
    ```bash
-   node scripts/import.js      # or: npx ts-node scripts/import.ts
+   npm run import      # tsx scripts/import.ts → writes data/cassini.d1.sql
    npx wrangler d1 execute cassini --remote --file=data/cassini.d1.sql
    ```
 
@@ -70,6 +82,30 @@ DEPLOY_URL=https://cassini-mission-plan.redfour.workers.dev npm test
 
 ```bash
 npm run dev   # wrangler dev (uses local D1)
+```
+
+## 🔎 Query the data directly
+
+The local D1 starts **empty** — seed it once from the generated SQL:
+
+```bash
+npx wrangler d1 execute cassini --local --file=data/cassini.d1.sql
+```
+
+Then run SQL against the `master_plan` table (drop `--local` for `--remote` to hit the deployed DB):
+
+```bash
+# Top science teams by activity count
+npx wrangler d1 execute cassini --local \
+  --command="SELECT team, COUNT(*) AS activities FROM master_plan GROUP BY team ORDER BY activities DESC LIMIT 5;"
+
+# Full-text search via the FTS5 table
+npx wrangler d1 execute cassini --local \
+  --command="SELECT id, title FROM master_plan_fts JOIN master_plan USING(rowid) WHERE master_plan_fts MATCH 'titan flyby' LIMIT 5;"
+
+# Activities targeting Enceladus, earliest first
+npx wrangler d1 execute cassini --local \
+  --command="SELECT start_iso, title FROM master_plan WHERE target='Enceladus' ORDER BY start_iso LIMIT 5;"
 ```
 
 ## Docs

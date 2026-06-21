@@ -124,6 +124,27 @@ async function handleToolsCall(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // GET / (and HEAD) — a friendly health/info page so browser visits and
+    // uptime probes get a useful 200 instead of a bare 405. The MCP protocol
+    // itself is POST-only; this is purely human/monitoring affordance.
+    if (request.method === "GET" || request.method === "HEAD") {
+      const url = new URL(request.url);
+      if (url.pathname === "/") {
+        const info = {
+          name: "cassini-mission-plan",
+          version: VERSION,
+          status: "ok",
+          transport: "MCP-over-HTTP (JSON-RPC 2.0)",
+          usage: `POST ${url.origin}/ with a JSON-RPC body, e.g. {"jsonrpc":"2.0","id":1,"method":"tools/list"}`,
+          tools: toolDescriptors.length,
+        };
+        return new Response(JSON.stringify(info, null, 2), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+    }
+
     // Only accept POST — any other method gets a 405 outside JSON-RPC framing
     // because there is no request id to echo back yet.
     if (request.method !== "POST") {
