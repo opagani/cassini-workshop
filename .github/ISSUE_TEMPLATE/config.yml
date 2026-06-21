@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/robconery/cassini-workshop/security/advisories/new
+    url: https://github.com/opagani/cassini-workshop/security/advisories/new
     about: Please report security issues via GitHub Security Advisories, not public issues.

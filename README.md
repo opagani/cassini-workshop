@@ -2,16 +2,16 @@
 
 A read-only [Model Context Protocol](https://modelcontextprotocol.io) server over the Cassini-Huygens mission dataset (~62k activity rows). Built as an AI workshop demo: clean, readable TypeScript that runs live in Claude Desktop.
 
-**Live endpoint:** `https://cassini-mission-plan.redfour.workers.dev`
+**Live endpoint:** `https://cassini-mission-plan.paganio.workers.dev`
 
 🩺 A plain `GET /` returns a JSON health/info page. The MCP protocol itself is **POST-only** JSON-RPC, so any other request gets a `405`.
 
 ```bash
 # Health check
-curl https://cassini-mission-plan.redfour.workers.dev
+curl https://cassini-mission-plan.paganio.workers.dev
 
 # List the tools (JSON-RPC over POST)
-curl -X POST https://cassini-mission-plan.redfour.workers.dev \
+curl -X POST https://cassini-mission-plan.paganio.workers.dev \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
@@ -56,7 +56,7 @@ npm test                  # Jest — all specs against in-memory SQLite
 The deploy spec (`spec/deploy-and-initialize.spec.ts`) needs a live URL:
 
 ```bash
-DEPLOY_URL=https://cassini-mission-plan.redfour.workers.dev npm test
+DEPLOY_URL=https://cassini-mission-plan.paganio.workers.dev npm test
 ```
 
 ## Deploy (one-time setup)

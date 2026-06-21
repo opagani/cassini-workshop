@@ -10,7 +10,7 @@
 
 Please **do not open a public GitHub issue** for security bugs.
 
-Instead, report via [GitHub Security Advisories](https://github.com/robconery/cassini-workshop/security/advisories/new) or email **robconery@gmail.com**.
+Instead, report via [GitHub Security Advisories](https://github.com/opagani/cassini-workshop/security/advisories/new) or email **oscargustavo8@gmail.com**.
 
 Include:
 - A description of the vulnerability and its potential impact.
